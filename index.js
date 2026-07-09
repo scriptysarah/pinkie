@@ -116,4 +116,18 @@ client.on(Events.MessageCreate, async (message) => {
     }
 });
 
+const http = require('http');
+
+// --- 🌐 LIGHTWEIGHT ALIVE PORT LISTENER ---
+// Render automatically assigns a dynamic port via process.env.PORT
+const PORT = process.env.PORT || 3000; 
+
+http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.write('Bot core operational matrix: Online 24/7.');
+    res.end();
+}).listen(PORT, () => {
+    console.log(`📡 Keep-Alive server listening on port ${PORT}`);
+});
+
 client.login(process.env.DISCORD_TOKEN);
