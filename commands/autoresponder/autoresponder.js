@@ -22,7 +22,6 @@ module.exports = {
                 .setName('builder')
                 .setDescription('autoresponder creation dashboard')
         )
-        // --- ✏️ NEW: INTERACTIVE EDIT SUBCOMMAND ---
         .addSubcommand(subcommand =>
             subcommand
                 .setName('edit')
@@ -57,10 +56,12 @@ module.exports = {
         // --- 🗑️ DELETE SUBCOMMAND ---
         if (subcommand === 'delete') {
             const trigger = interaction.options.getString('trigger').toLowerCase().trim();
-            const exists = await db.get(`ar_${guildId}_${trigger}`);
+            const dbKey = `ar_${guildId}_${trigger}`;
+            const exists = await db.get(dbKey);
+            
             if (!exists) return interaction.reply({ content: `❌ No active autoresponder found for the keyword \`${trigger}\`.`, flags: MessageFlags.Ephemeral });
             
-            await db.delete(`ar_${guildId}_${trigger}`);
+            await db.delete(dbKey);
             return interaction.reply({ content: `🗑️ Successfully purged autoresponder keyword trigger \`${trigger}\`.`, flags: MessageFlags.Ephemeral });
         }
 
@@ -81,7 +82,9 @@ module.exports = {
                 reply: 'No reply text configured yet. Use the dropdown below to set your message values!'
             };
 
-            // If we are editing, grab the existing text out of the database first!
+            // 🧠 Track the old key to clean it up if someone renames a trigger during editing
+            let originalTrigger = null; 
+
             if (subcommand === 'edit') {
                 const targetTrigger = interaction.options.getString('trigger').toLowerCase().trim();
                 const savedReply = await db.get(`ar_${guildId}_${targetTrigger}`);
@@ -92,16 +95,17 @@ module.exports = {
 
                 currentData.trigger = targetTrigger;
                 currentData.reply = savedReply;
+                originalTrigger = targetTrigger; // Remember the initial database key name
             }
 
-            // Compiles the Mimu visual grid overview card matrix
             const buildMimuSummaryEmbed = (data) => {
                 return new EmbedBuilder()
                     .setColor('#2b2d31')
                     .setAuthor({ name: `${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() })
-                    .setTitle(subcommand === 'edit' ? ' editing autoresponder' : 'new autoresponder created')
+                    .setTitle(subcommand === 'edit' ? '⭐ editing autoresponder' : '⭐ new autoresponder created')
                     .setDescription(
-                        `• check out the **ar functions** in /help \n\n` +
+                        `• not sure how to configure all these options?\n` +
+                        `• check out the **using ar functions guide** in our docs\n\n` +
                         `\`\`\`\n${data.reply}\n\`\`\``
                     )
                     .addFields(
@@ -118,14 +122,13 @@ module.exports = {
                     );
             };
 
-            // Component Dropdown UI mapping layout
             const selectMenu = new StringSelectMenuBuilder()
                 .setCustomId('ar_builder_menu')
                 .setPlaceholder('Modify autoresponder attributes...')
                 .addOptions([
                     { label: 'Set Trigger Phrase', value: 'set_trigger', description: 'The text keyword that invokes the response', emoji: '💬' },
                     { label: 'Set Response Message', value: 'set_reply', description: 'The text string reply payload dispatched back', emoji: '📝' },
-                    { label: '💾 Save & Save Changes', value: 'save_ar', description: 'Commit this operational trigger to the database engine', emoji: '💾' }
+                    { label: '💾 Save Changes', value: 'save_ar', description: 'Commit this operational trigger to the database engine', emoji: '💾' }
                 ]);
 
             const row = new ActionRowBuilder().addComponents(selectMenu);
@@ -138,7 +141,7 @@ module.exports = {
 
             const collector = initialMessage.createMessageComponentCollector({
                 componentType: ComponentType.StringSelect,
-                time: 600000 // Active layout for 10 minutes
+                time: 600000 
             });
 
             collector.on('collect', async i => {
@@ -150,14 +153,24 @@ module.exports = {
 
                 // --- 💾 DATABASE COMMIT ACTION ---
                 if (selection === 'save_ar') {
-                    if (currentData.trigger === 'none' || currentData.trigger.trim() === '') {
+                    const finalTrigger = currentData.trigger.toLowerCase().trim();
+
+                    if (finalTrigger === 'none' || finalTrigger === '') {
                         return i.reply({ content: '❌ You cannot save without setting a valid unique trigger keyword phrase!', flags: MessageFlags.Ephemeral });
                     }
 
-                    const dbKey = `ar_${guildId}_${currentData.trigger.toLowerCase().trim()}`;
+                    // 🗑️ Clean up older trigger file if the name was modified during editing
+                    if (originalTrigger && originalTrigger !== finalTrigger) {
+                        await db.delete(`ar_${guildId}_${originalTrigger}`);
+                    }
+
+                    const dbKey = `ar_${guildId}_${finalTrigger}`;
                     await db.set(dbKey, currentData.reply);
 
-                    return i.reply({ content: `✅ Successfully saved and updated the autoresponder trigger for \`${currentData.trigger}\`!`, flags: MessageFlags.Ephemeral });
+                    // Sync state so subsequent saves don't keep recreating/deleting
+                    originalTrigger = finalTrigger; 
+
+                    return i.reply({ content: `✅ Successfully saved and updated the autoresponder trigger for \`${finalTrigger}\`!`, flags: MessageFlags.Ephemeral });
                 }
 
                 // --- 📋 INTERACTIVE INTERFACE MODAL MAP ---
@@ -167,7 +180,7 @@ module.exports = {
                         .setCustomId('ar_input_trigger')
                         .setLabel('ENTER CHAT TRIGGER WORD/PHRASE:')
                         .setValue(currentData.trigger === 'none' ? '' : currentData.trigger)
-                        .setPlaceholder('e.g., .slap, .hug, etc')
+                        .setPlaceholder('e.g., .hire, hello, website')
                         .setStyle(TextInputStyle.Short)
                         .setRequired(true);
 
@@ -187,7 +200,7 @@ module.exports = {
                         .setCustomId('ar_input_reply')
                         .setLabel('RESPONSE STRING BODY (Supports Placeholders):')
                         .setValue(currentData.reply.startsWith('No reply text') ? '' : currentData.reply)
-                        .setPlaceholder('the text you want ur autoresponder to reply with')
+                        .setPlaceholder('e.g., State if free/paid state the plan... {user}')
                         .setStyle(TextInputStyle.Paragraph)
                         .setRequired(true);
 
