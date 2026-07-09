@@ -101,8 +101,7 @@ module.exports = {
                     .setAuthor({ name: `${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() })
                     .setTitle(subcommand === 'edit' ? ' editing autoresponder' : 'new autoresponder created')
                     .setDescription(
-                        `• not sure how to configure all these options?\n` +
-                        `• check out the **using ar functions guide** in our docs\n\n` +
+                        `• check out the **ar functions** in /help \n\n` +
                         `\`\`\`\n${data.reply}\n\`\`\``
                     )
                     .addFields(
@@ -168,7 +167,7 @@ module.exports = {
                         .setCustomId('ar_input_trigger')
                         .setLabel('ENTER CHAT TRIGGER WORD/PHRASE:')
                         .setValue(currentData.trigger === 'none' ? '' : currentData.trigger)
-                        .setPlaceholder('e.g., .hire, hello, website')
+                        .setPlaceholder('e.g., .slap, .hug, etc')
                         .setStyle(TextInputStyle.Short)
                         .setRequired(true);
 
@@ -188,7 +187,7 @@ module.exports = {
                         .setCustomId('ar_input_reply')
                         .setLabel('RESPONSE STRING BODY (Supports Placeholders):')
                         .setValue(currentData.reply.startsWith('No reply text') ? '' : currentData.reply)
-                        .setPlaceholder('e.g., State if free/paid state the plan... {user}')
+                        .setPlaceholder('the text you want ur autoresponder to reply with')
                         .setStyle(TextInputStyle.Paragraph)
                         .setRequired(true);
 
